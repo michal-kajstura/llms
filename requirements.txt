@@ -1,5 +1,7 @@
+accelerate
+bitsandbytes
 datasets
-dvc
+dvc[ssh]
 transformers
 torch
 toolz

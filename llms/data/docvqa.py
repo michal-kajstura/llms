@@ -75,7 +75,8 @@ class DocVQA(datasets.GeneratorBasedBuilder):
 
         for image_name, examples in documents.items():
             document_name = Path(image_name).stem
-            with (filepath / "ocr_results" / f"{document_name}.json").open("r") as file:
+            json_path = filepath / "ocr_results" / f"{document_name}.json"
+            with json_path.open("r") as file:
                 ocr_results = json.load(file)
             context, words_boxes = self._transform_ocr_results(ocr_results)
 
