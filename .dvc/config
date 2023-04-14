@@ -1,0 +1,9 @@
+[core]
+    analytics = false
+    remote = dvc_tableocr
+[cache]
+    type = symlink
+    shared = group
+[remote "dvc_tableocr"]
+    url = ssh://192.168.10.47:/mnt/data/dvc/tableocr
+    port = 22

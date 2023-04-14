@@ -1,0 +1,8 @@
+datasets
+dvc
+transformers
+torch
+toolz
+peft
+pytorch-lightning
+mlflow
