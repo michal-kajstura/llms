@@ -1,0 +1,5 @@
+outs:
+- md5: 4a84ee931f74bdcaccec3996d69b87a7.dir
+  size: 8890423028
+  nfiles: 25538
+  path: docvqa
