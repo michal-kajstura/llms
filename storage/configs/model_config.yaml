@@ -1,22 +1,25 @@
 model:
-  model_name: google/flan-t5-base
+  model_name: google/flan-t5-large
   load_in_8bit: true
 optimizer:
   lr: 0.001
 datamodule:
   dataset_name: zero_shot
-  batch_size: 4
+  batch_size: 16
   num_workers: 8
   max_context_length: 1024
   max_target_length: 256
 trainer:
   max_epochs: 10
   accelerator: gpu
-  precision: '16'
+  accumulate_grad_batches: 1
+  precision: 'bf16'
+  limit_val_batches: 64
 generation:
   temperature: 1.0
 metrics:
   - anls
+  - extraction_match
 
 peft_config_type: lora
 lora:

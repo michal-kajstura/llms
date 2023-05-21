@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from copy import deepcopy
 from typing import Any, Sequence
 
 from evaluate import EvaluationModule
@@ -21,7 +22,7 @@ class Seq2SeqWrapper(LightningModule):
         self._model = model
         self._tokenizer = tokenizer
         self._configure_optimizers_func = configure_optimizers_func
-        self._metrics = {epoch_type: metrics for epoch_type in ["validation", "test"]}
+        self._metrics = {epoch_type: deepcopy(metrics) for epoch_type in ["validation", "test"]}
         self._generation_config = generation_config
 
     def forward(self, *args, **kwargs):

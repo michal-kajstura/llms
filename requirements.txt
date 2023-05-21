@@ -1,6 +1,6 @@
 accelerate
 bitsandbytes
-datasets==1.0.6
+datasets==2.11.0
 evaluate
 dvc[ssh]==2.45.1
 transformers==4.29.2
@@ -9,4 +9,5 @@ toolz
 peft==0.3.0
 pytorch-lightning==2.0.2
 mlflow==2.3.2
-yaml
+PyYAML
+Levenshtein

@@ -4,7 +4,7 @@ import torch
 from pytorch_lightning.loggers import MLFlowLogger
 from transformers import GenerationConfig, PreTrainedModel
 
-from llms import CONFIGS_PATH, DATASETS_PATH, METRICS_PATH
+from llms import CONFIGS_PATH, DATASETS_PATH, METRICS_PATH, STORAGE_DIR
 from llms.training.datamodule import Seq2SeqDataModule
 from llms.training.factory import get_model, get_peft_config
 from llms.training.wrapper import Seq2SeqWrapper
@@ -58,15 +58,19 @@ logger = MLFlowLogger(
 )
 trainer = pl.Trainer(
     max_epochs=config["trainer"]["max_epochs"],
+    accumulate_grad_batches=config["trainer"]["accumulate_grad_batches"],
     accelerator=config["trainer"]["accelerator"],
     precision=config["trainer"]["precision"],
     logger=logger,
     callbacks=[
         pl.callbacks.ModelCheckpoint(
-            monitor="validation/anls",
+            monitor="validation/extraction_match",
+            mode='max',
         ),
     ],
+    limit_val_batches=config["trainer"]["limit_val_batches"],
 )
+
 
 trainer.fit(
     model=wrapper,

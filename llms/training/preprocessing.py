@@ -22,7 +22,7 @@ def preprocess_data(
 
         fields_batch = [process_fields(fields) for fields in samples["fields"]]
         inputs = [
-            f"context:\n{text}\n\nfields:\n{fields['field_names']}\n"
+            f"{text}  Extract these fields:  {fields['field_names']}  "
             for text, fields in zip(samples["text"], fields_batch)
         ]
 
@@ -49,7 +49,7 @@ def preprocess_data(
             seq=zip(fields["field_name"], fields["field_value"]),
         )
         unique_field_names = ", ".join(grouped)
-        target = "\n".join(
+        target = "|".join(
             f"{field_name}: {value}"
             for field_name, values in grouped.items()
             for _, value in values

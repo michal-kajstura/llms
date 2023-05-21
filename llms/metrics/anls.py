@@ -54,4 +54,4 @@ class ANLS(evaluate.Metric):
             anls_score += score if score > self._distance_threshold else 0.0
 
         anls_score /= len(predictions)
-        return {"anls_score": anls_score}
+        return {"anls": anls_score}
