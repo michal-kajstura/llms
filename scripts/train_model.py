@@ -1,65 +1,74 @@
-from pathlib import Path
+import evaluate
+import pytorch_lightning as pl
+import torch
+from pytorch_lightning.loggers import MLFlowLogger
+from transformers import GenerationConfig, PreTrainedModel
 
-from datasets import load_dataset
-from peft import LoraConfig, TaskType
-from transformers import (
-    DataCollatorForSeq2Seq,
-    Seq2SeqTrainer,
-    Seq2SeqTrainingArguments,
+from llms import CONFIGS_PATH, DATASETS_PATH, METRICS_PATH
+from llms.training.datamodule import Seq2SeqDataModule
+from llms.training.factory import get_model, get_peft_config
+from llms.training.wrapper import Seq2SeqWrapper
+from llms.utils.config import load_config
+from llms.utils.dvc import maybe_get_dvc
+
+config = load_config(maybe_get_dvc(CONFIGS_PATH / "model_config.yaml"))
+
+peft_config = get_peft_config(config)
+model, tokenizer = get_model(
+    model_name=config["model"]["model_name"],
+    load_in_8bit=config["model"]["load_in_8bit"],
+    peft_config=peft_config,
 )
 
-from llms import DATASETS_PATH
-from llms.training.factory import get_model
-from llms.training.preprocessing import preprocess_data
 
-dataset_path = DATASETS_PATH / "docvqa.py"
-dataset = load_dataset(str(dataset_path))
+def configure_optimizers_func(model: PreTrainedModel):
+    optimizer = torch.optim.AdamW(
+        params=model.parameters(),
+        lr=config["optimizer"]["lr"],
+    )
+    return optimizer
 
-model_name = "google/flan-t5-large"
-model, tokenizer = get_model(
-    model_name=model_name,
-    load_in_8bit=True,
-    peft_config=LoraConfig(
-        r=16,
-        lora_alpha=32,
-        target_modules=["q", "v"],
-        lora_dropout=0.05,
-        bias="none",
-        task_type=TaskType.SEQ_2_SEQ_LM,
+
+metrics = [
+    evaluate.load(str(METRICS_PATH / f"{metric_name}.py"))
+    for metric_name in config["metrics"]
+]
+
+wrapper = Seq2SeqWrapper(
+    model=model,
+    tokenizer=tokenizer,
+    configure_optimizers_func=configure_optimizers_func,
+    metrics=metrics,
+    generation_config=GenerationConfig(
+        max_new_tokens=config["datamodule"]["max_target_length"],
+        temperature=config["generation"]["temperature"],
     ),
 )
-
-tokenized_dataset = preprocess_data(
-    dataset=dataset,
+dataset_path = DATASETS_PATH / f"{config['datamodule']['dataset_name']}.py"
+datamodule = Seq2SeqDataModule(
+    dataset_path=dataset_path,
     tokenizer=tokenizer,
-    max_context_length=512,
-    max_target_length=64,
+    batch_size=config["datamodule"]["batch_size"],
+    num_workers=config["datamodule"]["num_workers"],
+    max_context_length=config["datamodule"]["max_context_length"],
+    max_target_length=config["datamodule"]["max_target_length"],
+)
+logger = MLFlowLogger(
+    experiment_name="llms",
+)
+trainer = pl.Trainer(
+    max_epochs=config["trainer"]["max_epochs"],
+    accelerator=config["trainer"]["accelerator"],
+    precision=config["trainer"]["precision"],
+    logger=logger,
+    callbacks=[
+        pl.callbacks.ModelCheckpoint(
+            monitor="validation/anls",
+        ),
+    ],
 )
 
-
-save_path = Path(f"data/{model_name.replace('/', '-')}")
-
-training_args = Seq2SeqTrainingArguments(
-    output_dir=str(save_path),
-    per_device_train_batch_size=2,
-    learning_rate=1e-3,
-    num_train_epochs=5,
-    logging_dir=f"{save_path}/logs",
-    logging_strategy="steps",
-    logging_steps=50,
-    save_strategy="no",
-    report_to="mlflow",
+trainer.fit(
+    model=wrapper,
+    datamodule=datamodule,
 )
-
-data_collator = DataCollatorForSeq2Seq(
-    tokenizer,
-    model=model,
-    pad_to_multiple_of=8,
-)
-trainer = Seq2SeqTrainer(
-    model=model,
-    args=training_args,
-    data_collator=data_collator,
-    train_dataset=tokenized_dataset["train"],
-)
-trainer.train()
