@@ -1,8 +1,12 @@
-import evaluate
-import pytorch_lightning as pl
-import torch
+import logging
 from functools import partial
-from pytorch_lightning.loggers import MLFlowLogger
+
+import evaluate
+import torch
+from lightning import Trainer
+from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.loggers import MLFlowLogger
+from lightning_hivemind.strategy import HivemindStrategy
 from toolz import compose_left
 from transformers import GenerationConfig, PreTrainedModel
 
@@ -14,6 +18,8 @@ from llms.training.transforms import TrainingTransform
 from llms.training.wrapper import Seq2SeqWrapper
 from llms.utils.config import load_config
 from llms.utils.dvc import maybe_get_dvc
+
+logging.basicConfig(level=logging.INFO)
 
 config = load_config(maybe_get_dvc(CONFIGS_PATH / "model_config.yaml"))
 
@@ -27,7 +33,7 @@ model, tokenizer = get_model(
 
 def configure_optimizers_func(model: PreTrainedModel):
     optimizer = torch.optim.AdamW(
-        params=model.parameters(),
+        params=[param for param in model.parameters() if param.requires_grad],
         lr=config["optimizer"]["lr"],
     )
     return optimizer
@@ -70,20 +76,21 @@ logger = MLFlowLogger(
     experiment_name="llms",
 )
 logger.log_hyperparams(config)
-trainer = pl.Trainer(
+trainer = Trainer(
     max_epochs=config["trainer"]["max_epochs"],
     accumulate_grad_batches=config["trainer"]["accumulate_grad_batches"],
     accelerator=config["trainer"]["accelerator"],
     precision=config["trainer"]["precision"],
     logger=logger,
     callbacks=[
-        pl.callbacks.ModelCheckpoint(
+        ModelCheckpoint(
             monitor=f'validation/{config["metrics"]["monitor"]["name"]}',
             mode=config["metrics"]["monitor"]["mode"],
         ),
     ],
     limit_val_batches=config["trainer"]["limit_val_batches"],
     check_val_every_n_epoch=config["trainer"]["check_val_every_n_epoch"],
+    strategy=HivemindStrategy(target_batch_size=4),
 )
 
 trainer.fit(

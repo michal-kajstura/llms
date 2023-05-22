@@ -1,18 +1,9 @@
-from peft import (
-    LoraConfig,
-    PeftConfig,
-    PrefixTuningConfig,
-    TaskType,
-    get_peft_model,
-    prepare_model_for_int8_training,
-)
-from transformers import (
-    AutoModelForSeq2SeqLM,
-    AutoTokenizer,
-    PreTrainedModel,
-    PreTrainedTokenizer,
-)
 from typing import Any
+
+from peft import (LoraConfig, PeftConfig, PrefixTuningConfig, TaskType,
+                  get_peft_model, prepare_model_for_int8_training)
+from transformers import (AutoModelForSeq2SeqLM, AutoTokenizer,
+                          PreTrainedModel, PreTrainedTokenizer)
 
 
 def get_model(

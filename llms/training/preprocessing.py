@@ -84,4 +84,3 @@ def process_fields(
         "field_names": unique_field_names,
         "target": target,
     }
-

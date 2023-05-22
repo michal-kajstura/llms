@@ -39,7 +39,6 @@ class ExtractionMatch(evaluate.Metric):
         predictions: list[str],
         references: list[str],
     ) -> dict[str, Any]:
-
         total_score = 0.0
         total_references = 0
         for prediction, reference in zip(predictions, references):
@@ -57,12 +56,14 @@ class ExtractionMatch(evaluate.Metric):
         reference_extractions = self._parse_text_as_extractions(reference)
 
         matrix = np.zeros((len(reference_extractions), len(prediction_extractions)))
-        for prediction_idx, (prediction_field_name, prediction_field_value) in enumerate(
-            prediction_extractions
-        ):
-            for reference_idx, (reference_field_name, reference_field_value) in enumerate(
-                reference_extractions
-            ):
+        for prediction_idx, (
+            prediction_field_name,
+            prediction_field_value,
+        ) in enumerate(prediction_extractions):
+            for reference_idx, (
+                reference_field_name,
+                reference_field_value,
+            ) in enumerate(reference_extractions):
                 if prediction_field_name == reference_field_name:
                     matrix[reference_idx, prediction_idx] = ratio(
                         prediction_field_value, reference_field_value
@@ -78,7 +79,7 @@ class ExtractionMatch(evaluate.Metric):
     @staticmethod
     def _parse_text_as_extractions(text: str) -> list[tuple[str, str]]:
         extractions = []
-        for line in text.split('|'):
+        for line in text.split("|"):
             parts = line.split(":", maxsplit=1)
             match parts:
                 case [field_name, field_value]:

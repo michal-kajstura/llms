@@ -3,8 +3,8 @@ from copy import deepcopy
 from typing import Any, Sequence
 
 from evaluate import EvaluationModule
-from pytorch_lightning import LightningModule
-from pytorch_lightning.utilities.types import STEP_OUTPUT
+from lightning import LightningModule
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor
 from transformers import GenerationConfig, PreTrainedModel, PreTrainedTokenizer
 
@@ -22,7 +22,9 @@ class Seq2SeqWrapper(LightningModule):
         self._model = model
         self._tokenizer = tokenizer
         self._configure_optimizers_func = configure_optimizers_func
-        self._metrics = {epoch_type: deepcopy(metrics) for epoch_type in ["validation", "test"]}
+        self._metrics = {
+            epoch_type: deepcopy(metrics) for epoch_type in ["validation", "test"]
+        }
         self._generation_config = generation_config
 
     def forward(self, *args, **kwargs):
