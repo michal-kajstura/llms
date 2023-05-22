@@ -1,12 +1,16 @@
 import evaluate
 import pytorch_lightning as pl
 import torch
+from functools import partial
 from pytorch_lightning.loggers import MLFlowLogger
+from toolz import compose_left
 from transformers import GenerationConfig, PreTrainedModel
 
-from llms import CONFIGS_PATH, DATASETS_PATH, METRICS_PATH, STORAGE_DIR
+from llms import CONFIGS_PATH, DATASETS_PATH, METRICS_PATH
 from llms.training.datamodule import Seq2SeqDataModule
 from llms.training.factory import get_model, get_peft_config
+from llms.training.preprocessing import preprocess_batch
+from llms.training.transforms import TrainingTransform
 from llms.training.wrapper import Seq2SeqWrapper
 from llms.utils.config import load_config
 from llms.utils.dvc import maybe_get_dvc
@@ -31,9 +35,8 @@ def configure_optimizers_func(model: PreTrainedModel):
 
 metrics = [
     evaluate.load(str(METRICS_PATH / f"{metric_name}.py"))
-    for metric_name in config["metrics"]
+    for metric_name in config["metrics"]["metrics"]
 ]
-
 wrapper = Seq2SeqWrapper(
     model=model,
     tokenizer=tokenizer,
@@ -44,18 +47,29 @@ wrapper = Seq2SeqWrapper(
         temperature=config["generation"]["temperature"],
     ),
 )
+
 dataset_path = DATASETS_PATH / f"{config['datamodule']['dataset_name']}.py"
+transforms = [
+    TrainingTransform(),
+    partial(
+        preprocess_batch,
+        tokenizer=tokenizer,
+        max_context_length=config["datamodule"]["max_context_length"],
+        max_target_length=config["datamodule"]["max_target_length"],
+    ),
+]
 datamodule = Seq2SeqDataModule(
     dataset_path=dataset_path,
     tokenizer=tokenizer,
     batch_size=config["datamodule"]["batch_size"],
     num_workers=config["datamodule"]["num_workers"],
-    max_context_length=config["datamodule"]["max_context_length"],
-    max_target_length=config["datamodule"]["max_target_length"],
+    transform_func=compose_left(*transforms),
 )
+
 logger = MLFlowLogger(
     experiment_name="llms",
 )
+logger.log_hyperparams(config)
 trainer = pl.Trainer(
     max_epochs=config["trainer"]["max_epochs"],
     accumulate_grad_batches=config["trainer"]["accumulate_grad_batches"],
@@ -64,13 +78,13 @@ trainer = pl.Trainer(
     logger=logger,
     callbacks=[
         pl.callbacks.ModelCheckpoint(
-            monitor="validation/extraction_match",
-            mode='max',
+            monitor=f'validation/{config["metrics"]["monitor"]["name"]}',
+            mode=config["metrics"]["monitor"]["mode"],
         ),
     ],
     limit_val_batches=config["trainer"]["limit_val_batches"],
+    check_val_every_n_epoch=config["trainer"]["check_val_every_n_epoch"],
 )
-
 
 trainer.fit(
     model=wrapper,

@@ -8,6 +8,7 @@ torch
 toolz
 peft==0.3.0
 pytorch-lightning==2.0.2
+lightning-hivemind
 mlflow==2.3.2
 PyYAML
 Levenshtein

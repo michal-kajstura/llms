@@ -46,7 +46,7 @@ class Seq2SeqWrapper(LightningModule):
 
     def _evaluation_step(self, batch: dict[str, Tensor], epoch_type: str):
         generated_tokens = self._model.generate(
-            inputs=batch["input_ids"],
+            input_ids=batch["input_ids"],
             generation_config=self._generation_config,
         )
         decoded_text = self._tokenizer.batch_decode(
