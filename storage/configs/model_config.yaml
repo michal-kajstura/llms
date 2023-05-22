@@ -1,22 +1,31 @@
+preprocessing:
+  answer_delimiter: "|"
+  line_delimiter: "|"
+  tab_delimiter: ";"
+  max_context_length: 1024
+  max_target_length: 512
+  min_num_fields: 1
+  max_num_fields: 16
+
+
 model:
   model_name: google/flan-t5-large
   load_in_8bit: false
 
 optimizer:
+  name: adam
   lr: 0.001
 
 datamodule:
   dataset_name: zero_shot
-  batch_size: 4
-  num_workers: 8
-  max_context_length: 1024
-  max_target_length: 512
+  batch_size: 2
+  num_workers: 0
 
 trainer:
   max_epochs: 100
   accelerator: gpu
   accumulate_grad_batches: 1
-  precision: 'b16'
+  precision: 'bf16-mixed'
   limit_val_batches: 64
   check_val_every_n_epoch: 3
 
@@ -27,9 +36,13 @@ metrics:
   monitor:
     name: extraction_match
     mode: max
-  metrics:
+  used_metrics:
     - anls
     - extraction_match
+  extraction_match:
+    similarity_threshold: 0.8
+    case_sensitive: false
+    line_delimiter: "|"
 
 peft:
   config_type: lora

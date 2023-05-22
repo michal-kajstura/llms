@@ -5,7 +5,7 @@ evaluate
 dvc[ssh]==2.45.1
 transformers==4.29.2
 torch
-toolz
+cytoolz
 peft==0.3.0
 lightning==2.0.2
 lightning-hivemind

@@ -12,6 +12,7 @@ class ExtractionMatch(evaluate.Metric):
         self,
         similarity_threshold: float = 0.8,
         case_sensitive: bool = False,
+        line_delimiter: str = "|",
         **kwargs,
     ):
         super().__init__(
@@ -19,6 +20,7 @@ class ExtractionMatch(evaluate.Metric):
         )
         self._similarity_threshold = similarity_threshold
         self._case_sensitive = case_sensitive
+        self._line_delimiter = line_delimiter
 
     def _info(self):
         return evaluate.MetricInfo(
@@ -76,10 +78,9 @@ class ExtractionMatch(evaluate.Metric):
 
         return total_score, len(reference_extractions)
 
-    @staticmethod
-    def _parse_text_as_extractions(text: str) -> list[tuple[str, str]]:
+    def _parse_text_as_extractions(self, text: str) -> list[tuple[str, str]]:
         extractions = []
-        for line in text.split("|"):
+        for line in text.split(self._line_delimiter):
             parts = line.split(":", maxsplit=1)
             match parts:
                 case [field_name, field_value]:

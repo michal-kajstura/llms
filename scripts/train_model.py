@@ -1,27 +1,22 @@
-import logging
-from functools import partial
-
 import evaluate
+import logging
 import torch
 from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import MLFlowLogger
-from lightning_hivemind.strategy import HivemindStrategy
 from toolz import compose_left
 from transformers import GenerationConfig, PreTrainedModel
 
 from llms import CONFIGS_PATH, DATASETS_PATH, METRICS_PATH
 from llms.training.datamodule import Seq2SeqDataModule
 from llms.training.factory import get_model, get_peft_config
-from llms.training.preprocessing import preprocess_batch
-from llms.training.transforms import TrainingTransform
+from llms.training.preprocessing import PreprocessBatch, TransformFields
 from llms.training.wrapper import Seq2SeqWrapper
 from llms.utils.config import load_config
-from llms.utils.dvc import maybe_get_dvc
 
 logging.basicConfig(level=logging.INFO)
 
-config = load_config(maybe_get_dvc(CONFIGS_PATH / "model_config.yaml"))
+config = load_config(CONFIGS_PATH / "model_config.yaml")
 
 peft_config = get_peft_config(config)
 model, tokenizer = get_model(
@@ -40,8 +35,11 @@ def configure_optimizers_func(model: PreTrainedModel):
 
 
 metrics = [
-    evaluate.load(str(METRICS_PATH / f"{metric_name}.py"))
-    for metric_name in config["metrics"]["metrics"]
+    evaluate.load(
+        str(METRICS_PATH / f"{metric_name}.py"),
+        **config["metrics"].get(metric_name, {}),
+    )
+    for metric_name in config["metrics"]["used_metrics"]
 ]
 wrapper = Seq2SeqWrapper(
     model=model,
@@ -49,27 +47,36 @@ wrapper = Seq2SeqWrapper(
     configure_optimizers_func=configure_optimizers_func,
     metrics=metrics,
     generation_config=GenerationConfig(
-        max_new_tokens=config["datamodule"]["max_target_length"],
+        max_new_tokens=config["preprocessing"]["max_target_length"],
         temperature=config["generation"]["temperature"],
     ),
 )
 
 dataset_path = DATASETS_PATH / f"{config['datamodule']['dataset_name']}.py"
-transforms = [
-    TrainingTransform(),
-    partial(
-        preprocess_batch,
+eval_transforms = [
+    PreprocessBatch(
         tokenizer=tokenizer,
-        max_context_length=config["datamodule"]["max_context_length"],
-        max_target_length=config["datamodule"]["max_target_length"],
+        max_context_length=config["preprocessing"]["max_context_length"],
+        max_target_length=config["preprocessing"]["max_target_length"],
+        answer_delimiter=config["preprocessing"]["answer_delimiter"],
+        line_delimiter=config["preprocessing"]["line_delimiter"],
+        tab_delimiter=config["preprocessing"]["tab_delimiter"],
     ),
+]
+training_transforms = [
+    TransformFields(
+        min_num_fields=config["preprocessing"]["min_num_fields"],
+        max_num_fields=config["preprocessing"]["max_num_fields"],
+    ),
+    *eval_transforms,
 ]
 datamodule = Seq2SeqDataModule(
     dataset_path=dataset_path,
     tokenizer=tokenizer,
     batch_size=config["datamodule"]["batch_size"],
     num_workers=config["datamodule"]["num_workers"],
-    transform_func=compose_left(*transforms),
+    training_transform_func=compose_left(*training_transforms),
+    eval_transform_func=compose_left(*eval_transforms),
 )
 
 logger = MLFlowLogger(
@@ -90,7 +97,6 @@ trainer = Trainer(
     ],
     limit_val_batches=config["trainer"]["limit_val_batches"],
     check_val_every_n_epoch=config["trainer"]["check_val_every_n_epoch"],
-    strategy=HivemindStrategy(target_batch_size=4),
 )
 
 trainer.fit(
