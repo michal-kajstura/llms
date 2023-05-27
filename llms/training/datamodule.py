@@ -1,14 +1,13 @@
 from collections.abc import Callable, Mapping
+from typing import Any
+
 from datasets import load_dataset
 from lightning import LightningDataModule
-from lightning.pytorch.utilities.types import (
-    EVAL_DATALOADERS,
-    TRAIN_DATALOADERS,
-)
+from lightning.pytorch.utilities.types import (EVAL_DATALOADERS,
+                                               TRAIN_DATALOADERS)
 from toolz import identity
 from torch.utils.data import DataLoader
 from transformers import DataCollatorForSeq2Seq, PreTrainedTokenizer
-from typing import Any
 
 
 class Seq2SeqDataModule(LightningDataModule):

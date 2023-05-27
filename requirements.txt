@@ -1,5 +1,6 @@
 accelerate
-bitsandbytes
+bitsandbytes==0.39.0
+clearml
 datasets==2.11.0
 evaluate
 dvc[ssh]==2.45.1
@@ -7,6 +8,7 @@ transformers==4.29.2
 torch
 cytoolz
 peft==0.3.0
+pydantic==1.8.2
 lightning==2.0.2
 lightning-hivemind
 mlflow==2.3.2

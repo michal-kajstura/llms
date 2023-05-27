@@ -1,11 +1,11 @@
 from collections import Counter
+from random import randint, shuffle
+from typing import Any
 
 from cytoolz import groupby
 from datasets.formatting.formatting import LazyBatch
-from random import randint, shuffle
 from transformers import BatchEncoding, PreTrainedTokenizer
 from transformers.utils import PaddingStrategy
-from typing import Any
 
 
 class PreprocessBatch:
@@ -77,7 +77,7 @@ class PreprocessBatch:
     ) -> dict[str, str | list[str]]:
         grouped = groupby(
             lambda x: x[0],
-            seq=zip(fields["field_name"], fields["field_value"]),
+            seq=zip(fields["name"], fields["value"]),
         )
         unique_field_names = list(grouped.keys())
         target = self._answer_delimiter.join(
@@ -113,11 +113,11 @@ class TransformFields:
         fields = sample["fields"]
 
         if self._remove_multiple_occurrences:
-            counter = Counter(fields["field_name"])
-            ids = [i for i, v in enumerate(fields["field_name"]) if counter[v] == 1]
+            counter = Counter(fields["name"])
+            ids = [i for i, v in enumerate(fields["name"]) if counter[v] == 1]
             fields = {k: [v[i] for i in ids] for k, v in fields.items()}
 
-        all_fields = len(fields["field_name"])
+        all_fields = len(fields["name"])
         num_fields = randint(
             min(self._min_num_fields or 0, all_fields),
             min(self._max_num_fields or all_fields, all_fields),

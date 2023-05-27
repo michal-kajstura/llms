@@ -1,7 +1,6 @@
 import json
 from collections.abc import Iterable
 from pathlib import Path
-from random import randint
 
 import datasets
 from sklearn.model_selection import train_test_split
@@ -28,8 +27,8 @@ class ZeroShotDataset(datasets.GeneratorBasedBuilder):
                     "text": datasets.Value("string"),
                     "fields": datasets.features.Sequence(
                         {
-                            "field_name": datasets.Value("string"),
-                            "field_value": datasets.Value("string"),
+                            "name": datasets.Value("string"),
+                            "value": datasets.Value("string"),
                         }
                     ),
                 }
@@ -43,11 +42,9 @@ class ZeroShotDataset(datasets.GeneratorBasedBuilder):
             self.DATASET_DVC_PATH,
         )
 
-        file_paths = [
-            path.stem for path in dataset_dir.joinpath("annotations").iterdir()
-        ]
+        file_paths = list(dataset_dir.iterdir())
         train_paths, test_paths = train_test_split(
-            file_paths, test_size=0.2, random_state=42
+            file_paths, test_size=0.1, random_state=42
         )
 
         return [
@@ -64,15 +61,14 @@ class ZeroShotDataset(datasets.GeneratorBasedBuilder):
     def _generate_examples(
         self, filepaths: Iterable[Path]
     ) -> Iterable[tuple[str, dict]]:
-        for name in filepaths:
-            ground_truth_path = self.DATASET_DVC_PATH / "annotations" / f"{name}.json"
-            fields = json.loads(ground_truth_path.read_text())["fields"]
+        for path in filepaths:
+            annotation = json.loads(path.read_text())
+            fields = annotation["fields"]
             if not fields:
                 continue
 
-            ocr_path = self.DATASET_DVC_PATH / "ocr" / f"{name}.json"
-            text = json.loads(ocr_path.read_text())["text"]
-
+            name = path.stem
+            text = annotation["text"]
             item = {
                 "id": name,
                 "text": text,

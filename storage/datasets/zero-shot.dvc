@@ -1,5 +1,5 @@
 outs:
-- md5: dbc74d7417cc36fef05c6522721eb28e.dir
-  size: 1025041089
-  nfiles: 10530
+- md5: 76039e27d917d9cbbe8253c5d3d2a1e7.dir
+  size: 22129554
+  nfiles: 7766
   path: zero-shot
