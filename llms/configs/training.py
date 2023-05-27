@@ -25,21 +25,21 @@ class OptimizerConfig(BaseSettings):
 
 class DataModuleConfig(BaseSettings):
     dataset_name: str = "zero_shot"
-    batch_size: int = 1
+    batch_size: int = 2
     num_workers: int = 0
 
 
 class TrainerConfig(BaseSettings):
     max_epochs: int = 16
-    accelerator: str = "cpu"
+    accelerator: str = "cuda"
     accumulate_grad_batches: int = 8
-    precision: str = "32"
+    precision: str = "bf16"
     limit_val_batches: int = 64
     check_val_every_n_epoch: int = 2
 
 
 class GenerationConfig(BaseSettings):
-    temperature: float = 1.0
+    temperature: float = 0.0
 
 
 class MonitorConfig(BaseSettings):
