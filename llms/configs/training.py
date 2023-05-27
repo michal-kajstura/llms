@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseSettings
 
 
@@ -12,9 +14,8 @@ class PreprocessingConfig(BaseSettings):
 
 
 class ModelConfig(BaseSettings):
-    model_name: str = "google/flan-t5-base"
-    load_in_8bit: bool = False
-    load_in_4bit: bool = False
+    model_name: str = "google/flan-t5-large"
+    load_in_kbit: Literal[4, 8, None] = None
 
 
 class OptimizerConfig(BaseSettings):
@@ -29,12 +30,12 @@ class DataModuleConfig(BaseSettings):
 
 
 class TrainerConfig(BaseSettings):
-    max_epochs: int = 100
+    max_epochs: int = 16
     accelerator: str = "cpu"
     accumulate_grad_batches: int = 8
     precision: str = "32"
     limit_val_batches: int = 64
-    check_val_every_n_epoch: int = 5
+    check_val_every_n_epoch: int = 2
 
 
 class GenerationConfig(BaseSettings):

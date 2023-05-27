@@ -12,7 +12,7 @@ from transformers import GenerationConfig, PreTrainedModel
 from llms import DATASETS_PATH, METRICS_PATH
 from llms.configs.training import TrainingConfig
 from llms.training.datamodule import Seq2SeqDataModule
-from llms.training.factory import get_model, get_peft_config
+from llms.training.factory import get_model
 from llms.training.preprocessing import PreprocessBatch, TransformFields
 from llms.training.wrapper import Seq2SeqWrapper
 
@@ -21,13 +21,7 @@ logging.basicConfig(level=logging.INFO)
 config = TrainingConfig()
 lightning.seed_everything(config.seed)
 
-peft_config = get_peft_config(config)
-model, tokenizer = get_model(
-    model_name=config.model.model_name,
-    load_in_8bit=config.model.load_in_8bit,
-    load_in_4bit=config.model.load_in_4bit,
-    peft_config=peft_config,
-)
+model, tokenizer = get_model(config)
 
 
 def configure_optimizers_func(model: PreTrainedModel):
@@ -86,7 +80,7 @@ datamodule = Seq2SeqDataModule(
 logger = MLFlowLogger(
     experiment_name="llms",
 )
-logger.log_hyperparams(config)
+logger.log_hyperparams(config.dict())
 trainer = Trainer(
     max_epochs=config.trainer.max_epochs,
     accumulate_grad_batches=config.trainer.accumulate_grad_batches,
@@ -103,10 +97,6 @@ trainer = Trainer(
     check_val_every_n_epoch=config.trainer.check_val_every_n_epoch,
 )
 
-trainer.validate(
-    model=wrapper,
-    datamodule=datamodule,
-)
 trainer.fit(
     model=wrapper,
     datamodule=datamodule,
