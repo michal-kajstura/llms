@@ -3,8 +3,7 @@ from typing import Any
 
 from datasets import load_dataset
 from lightning import LightningDataModule
-from lightning.pytorch.utilities.types import (EVAL_DATALOADERS,
-                                               TRAIN_DATALOADERS)
+from lightning.pytorch.utilities.types import EVAL_DATALOADERS, TRAIN_DATALOADERS
 from toolz import identity
 from torch.utils.data import DataLoader
 from transformers import DataCollatorForSeq2Seq, PreTrainedTokenizer
@@ -17,12 +16,8 @@ class Seq2SeqDataModule(LightningDataModule):
         tokenizer: PreTrainedTokenizer,
         batch_size: int,
         num_workers: int = -1,
-        training_transform_func: Callable[
-            [Mapping[str, Any]], Mapping[str, Any]
-        ] = identity,
-        eval_transform_func: Callable[
-            [Mapping[str, Any]], Mapping[str, Any]
-        ] = identity,
+        training_transform_func: Callable[[Mapping[str, Any]], Mapping[str, Any]] = identity,
+        eval_transform_func: Callable[[Mapping[str, Any]], Mapping[str, Any]] = identity,
     ) -> None:
         super().__init__()
         self._dataset_path = dataset_path
@@ -36,9 +31,7 @@ class Seq2SeqDataModule(LightningDataModule):
         self._dataset = load_dataset(str(self._dataset_path))
         for split, dataset in self._dataset.items():
             transform_func = (
-                self._training_transform_func
-                if split == "train"
-                else self._eval_transform_func
+                self._training_transform_func if split == "train" else self._eval_transform_func
             )
             dataset.set_transform(transform_func)
 

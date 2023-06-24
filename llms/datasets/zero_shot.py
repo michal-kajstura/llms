@@ -3,7 +3,6 @@ from collections.abc import Iterable
 from pathlib import Path
 
 import datasets
-from sklearn.model_selection import train_test_split
 
 from llms import STORAGE_DIR
 from llms.utils.dvc import maybe_get_dvc
@@ -48,9 +47,7 @@ class ZeroShotDataset(datasets.GeneratorBasedBuilder):
             for split in (datasets.Split.TRAIN, datasets.Split.VALIDATION)
         ]
 
-    def _generate_examples(
-        self, filepaths: Iterable[Path]
-    ) -> Iterable[tuple[str, dict]]:
+    def _generate_examples(self, filepaths: Iterable[Path]) -> Iterable[tuple[str, dict]]:
         for path in filepaths:
             annotation = json.loads(path.read_text())
             fields = annotation["fields"]

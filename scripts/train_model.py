@@ -3,7 +3,6 @@ from pathlib import Path
 
 import evaluate
 import lightning
-import torch
 from lightning import Trainer
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import MLFlowLogger
@@ -12,7 +11,7 @@ from transformers import GenerationConfig, PreTrainedModel
 
 from llms import METRICS_PATH
 from llms import datasets as datasets_module
-from llms.configs.training import AdamWConfig, TrainingConfig
+from llms.configs.training import TrainingConfig
 from llms.training.datamodule import Seq2SeqDataModule
 from llms.training.factory import get_model
 from llms.training.preprocessing import PreprocessBatch, TransformFields

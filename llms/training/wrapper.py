@@ -6,12 +6,20 @@ from evaluate import EvaluationModule
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor
-from transformers import (GenerationConfig, PreTrainedModel,
-                          PreTrainedTokenizer, SchedulerType, get_scheduler)
+from transformers import (
+    GenerationConfig,
+    PreTrainedModel,
+    PreTrainedTokenizer,
+    SchedulerType,
+    get_scheduler,
+)
 
-from llms.configs.training import (AdamWConfig,
-                                   LinearSchedulerWithWarmupConfig,
-                                   OptimizerConfig, SchedulerConfig)
+from llms.configs.training import (
+    AdamWConfig,
+    LinearSchedulerWithWarmupConfig,
+    OptimizerConfig,
+    SchedulerConfig,
+)
 
 
 class Seq2SeqWrapper(LightningModule):
@@ -27,9 +35,7 @@ class Seq2SeqWrapper(LightningModule):
         super().__init__()
         self._model = model
         self._tokenizer = tokenizer
-        self._metrics = {
-            epoch_type: deepcopy(metrics) for epoch_type in ["validation", "test"]
-        }
+        self._metrics = {epoch_type: deepcopy(metrics) for epoch_type in ["validation", "test"]}
         self._generation_config = generation_config
         self._optimizer_config = optimizer_config
         self._scheduler_config = scheduler_config
@@ -58,14 +64,10 @@ class Seq2SeqWrapper(LightningModule):
             input_ids=batch["input_ids"],
             generation_config=self._generation_config,
         )
-        decoded_text = self._tokenizer.batch_decode(
-            generated_tokens, skip_special_tokens=True
-        )
+        decoded_text = self._tokenizer.batch_decode(generated_tokens, skip_special_tokens=True)
         labels = batch["labels"].clone()
         labels[labels == -100] = self._tokenizer.pad_token_id
-        decoded_reference = self._tokenizer.batch_decode(
-            labels, skip_special_tokens=True
-        )
+        decoded_reference = self._tokenizer.batch_decode(labels, skip_special_tokens=True)
 
         for metric in self._metrics[epoch_type]:
             metric.add_batch(predictions=decoded_text, references=decoded_reference)
@@ -79,19 +81,13 @@ class Seq2SeqWrapper(LightningModule):
     def _on_evaluation_epoch_end(self, epoch_type: str) -> None:
         for metric in self._metrics[epoch_type]:
             output = metric.compute()
-            self.log_dict(
-                {f"{epoch_type}/{name}": value for name, value in output.items()}
-            )
+            self.log_dict({f"{epoch_type}/{name}": value for name, value in output.items()})
 
     def configure_optimizers(self) -> Any:
         match self._optimizer_config:
             case AdamWConfig(lr=lr, weight_decay=weight_decay, eps=eps, betas=betas):
                 optimizer = torch.optim.AdamW(
-                    params=[
-                        param
-                        for param in self._model.parameters()
-                        if param.requires_grad
-                    ],
+                    params=[param for param in self._model.parameters() if param.requires_grad],
                     lr=lr,
                     weight_decay=weight_decay,
                     eps=eps,

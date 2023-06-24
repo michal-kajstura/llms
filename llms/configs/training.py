@@ -1,3 +1,4 @@
+import abc
 from typing import Literal
 
 from peft import TaskType
@@ -34,10 +35,20 @@ class LinearSchedulerWithWarmupConfig(SchedulerConfig):
     num_warmup_steps: int = 16
 
 
-class ModelConfig(BaseSettings):
-    model_name: str = "google/flan-t5-large"
+class ModelConfig(BaseSettings, abc.ABC):
+    model_name: str
     load_in_kbit: Literal[4, 8, None] = None
     temperature: float = 0.0
+
+
+class MPTModelConfig(ModelConfig):
+    model_name: str = "mosaicml/mpt-7b-instruct"
+    attn_impl: str = "triton"
+    init_device: str = "cuda:0"
+
+
+class T5ModelConfig(ModelConfig):
+    model_name: str = "google/flan-t5-large"
 
 
 class TrainerConfig(BaseSettings):
@@ -83,7 +94,7 @@ class PrefixTuningConfigSettings(PeftConfigSettings):
 class TrainingConfig(BaseSettings):
     seed: int = 42
     data: DataConfig = DataConfig()
-    model: ModelConfig = ModelConfig()
+    model: ModelConfig = T5ModelConfig()
     optimizer: OptimizerConfig = AdamWConfig()
     scheduler: SchedulerConfig = LinearSchedulerWithWarmupConfig()
     trainer: TrainerConfig = TrainerConfig()
@@ -92,7 +103,5 @@ class TrainingConfig(BaseSettings):
 
     @root_validator
     def _set_line_delimiter(cls, values: dict) -> dict:
-        values["metrics"].extraction_match["line_delimiter"] = values[
-            "data"
-        ].line_delimiter
+        values["metrics"].extraction_match["line_delimiter"] = values["data"].line_delimiter
         return values

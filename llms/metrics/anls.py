@@ -40,17 +40,13 @@ class ANLS(evaluate.Metric):
         anls_score = 0.0
         for prediction, ground_truths in zip(predictions, references, strict=True):
             max_value = 0
-            ground_truths = (
-                [ground_truths] if isinstance(ground_truths, str) else ground_truths
-            )
+            ground_truths = [ground_truths] if isinstance(ground_truths, str) else ground_truths
 
             if not self._case_sensitive:
                 prediction = prediction.lower()
                 ground_truths = [ground_truth.lower() for ground_truth in ground_truths]
 
-            score = max(
-                ratio(prediction, ground_truth) for ground_truth in ground_truths
-            )
+            score = max(ratio(prediction, ground_truth) for ground_truth in ground_truths)
             anls_score += score if score > self._distance_threshold else 0.0
 
         anls_score /= len(predictions)

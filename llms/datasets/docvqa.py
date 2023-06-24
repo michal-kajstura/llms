@@ -109,9 +109,7 @@ class DocVQA(datasets.GeneratorBasedBuilder):
         image_width = ocr_results["recognitionResults"][0]["width"]
         image_height = ocr_results["recognitionResults"][0]["height"]
 
-        lines = [
-            line for page in ocr_results["recognitionResults"] for line in page["lines"]
-        ]
+        lines = [line for page in ocr_results["recognitionResults"] for line in page["lines"]]
 
         raw_lines = "\n".join(line["text"] for line in lines)
 
