@@ -58,12 +58,14 @@ eval_transforms = [
         answer_delimiter=config.data.answer_delimiter,
         line_delimiter=config.data.line_delimiter,
         tab_delimiter=config.data.tab_delimiter,
+        normalize_text=config.data.normalize_text,
     ),
 ]
 training_transforms = [
     TransformFields(
         min_num_fields=config.data.min_num_fields,
         max_num_fields=config.data.max_num_fields,
+        normalize_text=config.data.normalize_text,
     ),
     *eval_transforms,
 ]

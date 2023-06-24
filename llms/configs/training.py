@@ -7,14 +7,15 @@ from pydantic import BaseSettings, root_validator
 
 class DataConfig(BaseSettings):
     dataset_name: str = "zero_shot"
-    answer_delimiter: str = "|"
-    line_delimiter: str = " | "
-    tab_delimiter: str = " ; "
+    answer_delimiter: str = "\n"
+    line_delimiter: str = "\n"
+    tab_delimiter: str = "\t"
     max_context_length: int = 1024
     max_target_length: int = 512
     min_num_fields: int = 4
     max_num_fields: int = 16
     prompt_template: str = "{text} Extract these fields: {field_names} "
+    normalize_text: bool = True
 
 
 class OptimizerConfig(BaseSettings):
@@ -102,6 +103,17 @@ class TrainingConfig(BaseSettings):
     peft: PeftConfigSettings = LoraConfigSettings()
 
     @root_validator
+    def _enforce_model_specific_formatting(cls, values: dict) -> dict:
+        if 'T5' in values['model'].model_name:
+            data = values['data']
+            data.answer_delimiter = ' | '
+            data.line_delimiter = ' | '
+            data.tab_delimiter = ' '
+
+        return values
+
+    @root_validator
     def _set_line_delimiter(cls, values: dict) -> dict:
         values["metrics"].extraction_match["line_delimiter"] = values["data"].line_delimiter
         return values
+

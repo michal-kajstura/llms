@@ -5,11 +5,7 @@ from peft import (
     get_peft_model,
     prepare_model_for_kbit_training,
 )
-from transformers import (
-    AutoTokenizer,
-    PreTrainedModel,
-    PreTrainedTokenizer,
-)
+from transformers import AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
 
 from llms.configs.training import (
     LoraConfigSettings,

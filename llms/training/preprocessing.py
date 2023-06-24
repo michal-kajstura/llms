@@ -15,12 +15,17 @@ def create_prompt(
     field_names: list[str] | None = None,
     line_delimiter: str = "|",
     tab_delimiter: str = " ",
+    normalize_text: bool = False,
 ) -> str:
     if fields and field_names:
         raise ValueError("Only one of fields or field_names can be specified")
 
-    text = text.replace("\n", line_delimiter)
-    text = text.replace("\t", tab_delimiter)
+    text = _preprocess_text(
+        text=text,
+        line_delimiter=line_delimiter,
+        tab_delimiter=tab_delimiter,
+        normalize_text=normalize_text,
+    )
 
     if fields:
         field_names = [field["name"] for field in fields]
@@ -33,6 +38,20 @@ def create_prompt(
     )
 
 
+def _preprocess_text(
+    text: str,
+    line_delimiter: str = "\n",
+    tab_delimiter: str = "\t",
+    normalize_text: bool = False,
+) -> str:
+    text = text.replace("\n", line_delimiter)
+    text = text.replace("\t", tab_delimiter)
+
+    if normalize_text:
+        text = text.lower()
+    return text
+
+
 class PreprocessBatch:
     def __init__(
         self,
@@ -43,6 +62,7 @@ class PreprocessBatch:
         answer_delimiter: str = "|",
         line_delimiter: str = "|",
         tab_delimiter: str = " ",
+        normalize_text: bool = False,
     ) -> None:
         self._tokenizer = tokenizer
         self._prompt_template = prompt_template
@@ -51,6 +71,7 @@ class PreprocessBatch:
         self._answer_delimiter = answer_delimiter
         self._line_delimiter = line_delimiter
         self._tab_delimiter = tab_delimiter
+        self._normalize_text = normalize_text
 
     def __call__(self, samples: LazyBatch) -> BatchEncoding:
         fields_batch = [
@@ -66,6 +87,7 @@ class PreprocessBatch:
                 line_delimiter=self._line_delimiter,
                 tab_delimiter=self._tab_delimiter,
                 prompt_template=self._prompt_template,
+                normalize_text=self._normalize_text,
             )
             for text, fields in zip(samples["text"], fields_batch)
         ]
@@ -111,10 +133,12 @@ class TransformFields:
         remove_multiple_occurrences: bool = True,
         min_num_fields: int | None = None,
         max_num_fields: int | None = None,
+        normalize_text: bool = False,
     ) -> None:
         self._remove_multiple_occurrences = remove_multiple_occurrences
         self._min_num_fields = min_num_fields
         self._max_num_fields = max_num_fields
+        self._normalize_text = normalize_text
 
     def __call__(self, samples: dict[str, list[Any]]) -> dict[str, list[Any]]:
         keys = list(samples.keys())
@@ -125,6 +149,12 @@ class TransformFields:
 
     def _transform(self, sample: dict[str, Any]) -> dict[str, Any]:
         fields = sample["fields"]
+
+        if self._normalize_text:
+            fields = {
+                k: [_preprocess_text(text=v, normalize_text=True) for v in values]
+                for k, values in fields.items()
+            }
 
         if self._remove_multiple_occurrences:
             counter = Counter(fields["name"])
