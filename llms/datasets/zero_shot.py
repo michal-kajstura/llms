@@ -38,24 +38,14 @@ class ZeroShotDataset(datasets.GeneratorBasedBuilder):
     def _split_generators(
         self, dl_manager: datasets.DownloadManager
     ) -> list[datasets.SplitGenerator]:
-        dataset_dir = maybe_get_dvc(
-            self.DATASET_DVC_PATH,
-        )
-
-        file_paths = list(dataset_dir.iterdir())
-        train_paths, test_paths = train_test_split(
-            file_paths, test_size=0.1, random_state=42
-        )
+        dataset_dir = maybe_get_dvc(self.DATASET_DVC_PATH)
 
         return [
             datasets.SplitGenerator(
                 name=split,
-                gen_kwargs={"filepaths": paths},
+                gen_kwargs={"filepaths": dataset_dir.joinpath(str(split)).iterdir()},
             )
-            for split, paths in (
-                (datasets.Split.TRAIN, train_paths),
-                (datasets.Split.VALIDATION, test_paths),
-            )
+            for split in (datasets.Split.TRAIN, datasets.Split.VALIDATION)
         ]
 
     def _generate_examples(

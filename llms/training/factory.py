@@ -1,15 +1,10 @@
-from peft import (
-    LoraConfig, PeftConfig, PrefixTuningConfig, TaskType, get_peft_model,
-    prepare_model_for_kbit_training,
-)
-from transformers import (
-    AutoModelForSeq2SeqLM,
-    AutoTokenizer,
-    PreTrainedModel,
-    PreTrainedTokenizer,
-)
+from peft import (LoraConfig, PeftConfig, PrefixTuningConfig, get_peft_model,
+                  prepare_model_for_kbit_training)
+from transformers import (AutoModelForSeq2SeqLM, AutoTokenizer,
+                          PreTrainedModel, PreTrainedTokenizer)
 
-from llms.configs.training import TrainingConfig
+from llms.configs.training import (LoraConfigSettings,
+                                   PrefixTuningConfigSettings, TrainingConfig)
 
 
 def get_model(
@@ -27,8 +22,10 @@ def get_model(
     model = AutoModelForSeq2SeqLM.from_pretrained(
         config.model.model_name,
         trust_remote_code=True,
+        device_map="auto",
         **load_in_kbit_args,
     )
+
     tokenizer = AutoTokenizer.from_pretrained(config.model.model_name)
 
     peft_config = get_peft_config(config)
@@ -55,25 +52,22 @@ def _convert_to_peft(
 
 
 def get_peft_config(config: TrainingConfig) -> PeftConfig | None:
-    peft_config_type = config.peft.config_type
-    match peft_config_type:
-        case "lora":
-            peft_config = config.peft.lora
+    match config.peft:
+        case LoraConfigSettings() as peft_config:
             return LoraConfig(
-                r=peft_config["r"],
-                lora_alpha=peft_config["lora_alpha"],
-                target_modules=["q", "v"],
-                lora_dropout=peft_config["lora_dropout"],
-                bias=peft_config["bias"],
-                task_type=TaskType.SEQ_2_SEQ_LM,
+                task_type=peft_config.task_type,
+                r=peft_config.r,
+                lora_alpha=peft_config.lora_alpha,
+                lora_dropout=peft_config.lora_dropout,
+                bias=peft_config.bias,
+                target_modules=peft_config.target_modules,
             )
-        case "prefix_tuning":
-            peft_config = config.peft.prefix_tuning
+        case PrefixTuningConfigSettings() as peft_config:
             return PrefixTuningConfig(
-                num_virtual_tokens=peft_config["num_virtual_tokens"],
-                task_type=TaskType.SEQ_2_SEQ_LM,
+                num_virtual_tokens=peft_config.num_virtual_tokens,
+                task_type=peft_config.task_type,
             )
         case None:
             return None
         case _:
-            raise ValueError(f"Unknown peft_config_type: {peft_config_type}")
+            raise ValueError(f"Unknown peft_config_type: {config.peft}")

@@ -8,10 +8,36 @@ from transformers import BatchEncoding, PreTrainedTokenizer
 from transformers.utils import PaddingStrategy
 
 
+def create_prompt(
+    text: str,
+    prompt_template: str = "{text} Extract these fields: {field_names} ",
+    fields: list[dict[str, str]] | None = None,
+    field_names: list[str] | None = None,
+    line_delimiter: str = "|",
+    tab_delimiter: str = " ",
+) -> str:
+    if fields and field_names:
+        raise ValueError("Only one of fields or field_names can be specified")
+
+    text = text.replace("\n", line_delimiter)
+    text = text.replace("\t", tab_delimiter)
+
+    if fields:
+        field_names = [field["name"] for field in fields]
+
+    field_names_str = ", ".join(field_names)
+
+    return prompt_template.format(
+        text=text,
+        field_names=field_names_str,
+    )
+
+
 class PreprocessBatch:
     def __init__(
         self,
         tokenizer: PreTrainedTokenizer,
+        prompt_template: str = "{text} Extract these fields: {field_names} ",
         max_context_length: int | None = None,
         max_target_length: int | None = None,
         answer_delimiter: str = "|",
@@ -19,6 +45,7 @@ class PreprocessBatch:
         tab_delimiter: str = " ",
     ) -> None:
         self._tokenizer = tokenizer
+        self._prompt_template = prompt_template
         self._max_context_length = max_context_length
         self._max_target_length = max_target_length
         self._answer_delimiter = answer_delimiter
@@ -33,9 +60,12 @@ class PreprocessBatch:
             for fields in samples["fields"]
         ]
         inputs = [
-            self._prepare_prompt(
+            create_prompt(
                 text=text,
-                fields=fields,
+                field_names=fields["field_names"],
+                line_delimiter=self._line_delimiter,
+                tab_delimiter=self._tab_delimiter,
+                prompt_template=self._prompt_template,
             )
             for text, fields in zip(samples["text"], fields_batch)
         ]
@@ -54,22 +84,6 @@ class PreprocessBatch:
         )
         model_inputs["labels"] = labels["input_ids"]
         return model_inputs
-
-    def _prepare_prompt(
-        self,
-        text: str,
-        fields: dict[str, list[str]],
-    ) -> str:
-        text = self._process_text(text)
-        field_names = ", ".join(fields["field_names"])
-        return f"{text} Extract these fields: {field_names} "
-
-    def _process_text(
-        self,
-        text: str,
-    ) -> str:
-        text = text.replace("\n", self._line_delimiter)
-        return text.replace("\t", self._tab_delimiter)
 
     def _process_fields(
         self,

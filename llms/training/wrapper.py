@@ -1,12 +1,17 @@
-from collections.abc import Callable
 from copy import deepcopy
 from typing import Any, Sequence
 
+import torch
 from evaluate import EvaluationModule
 from lightning import LightningModule
 from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torch import Tensor
-from transformers import GenerationConfig, PreTrainedModel, PreTrainedTokenizer
+from transformers import (GenerationConfig, PreTrainedModel,
+                          PreTrainedTokenizer, SchedulerType, get_scheduler)
+
+from llms.configs.training import (AdamWConfig,
+                                   LinearSchedulerWithWarmupConfig,
+                                   OptimizerConfig, SchedulerConfig)
 
 
 class Seq2SeqWrapper(LightningModule):
@@ -14,18 +19,20 @@ class Seq2SeqWrapper(LightningModule):
         self,
         model: PreTrainedModel,
         tokenizer: PreTrainedTokenizer,
-        configure_optimizers_func: Callable[[PreTrainedModel], Any],
         metrics: Sequence[EvaluationModule],
         generation_config: GenerationConfig,
+        optimizer_config: OptimizerConfig,
+        scheduler_config: SchedulerConfig,
     ):
         super().__init__()
         self._model = model
         self._tokenizer = tokenizer
-        self._configure_optimizers_func = configure_optimizers_func
         self._metrics = {
             epoch_type: deepcopy(metrics) for epoch_type in ["validation", "test"]
         }
         self._generation_config = generation_config
+        self._optimizer_config = optimizer_config
+        self._scheduler_config = scheduler_config
 
     def forward(self, *args, **kwargs):
         return self._model(*args, **kwargs)
@@ -77,4 +84,43 @@ class Seq2SeqWrapper(LightningModule):
             )
 
     def configure_optimizers(self) -> Any:
-        return self._configure_optimizers_func(self._model)
+        match self._optimizer_config:
+            case AdamWConfig(lr=lr, weight_decay=weight_decay, eps=eps, betas=betas):
+                optimizer = torch.optim.AdamW(
+                    params=[
+                        param
+                        for param in self._model.parameters()
+                        if param.requires_grad
+                    ],
+                    lr=lr,
+                    weight_decay=weight_decay,
+                    eps=eps,
+                    betas=betas,
+                )
+            case _:
+                raise NotImplementedError(self._optimizer_config)
+
+        total_devices = self.trainer.num_devices * self.trainer.num_nodes
+        train_batches = len(self.trainer.datamodule.train_dataloader()) // total_devices
+        num_training_steps = (
+            self.trainer.max_epochs * train_batches
+        ) // self.trainer.accumulate_grad_batches
+        match self._scheduler_config:
+            case LinearSchedulerWithWarmupConfig(num_warmup_steps=num_warmup_steps):
+                scheduler = get_scheduler(
+                    name=SchedulerType.LINEAR,
+                    optimizer=optimizer,
+                    num_training_steps=num_training_steps,
+                    num_warmup_steps=num_warmup_steps,
+                )
+            case _:
+                raise NotImplementedError(self._scheduler_config)
+
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler_config": {
+                "scheduler": scheduler,
+                "interval": "step",
+                "frequency": 1,
+            },
+        }
