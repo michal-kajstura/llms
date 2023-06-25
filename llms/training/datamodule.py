@@ -6,14 +6,16 @@ from lightning import LightningDataModule
 from lightning.pytorch.utilities.types import EVAL_DATALOADERS, TRAIN_DATALOADERS
 from toolz import identity
 from torch.utils.data import DataLoader
-from transformers import DataCollatorForSeq2Seq, PreTrainedTokenizer
+from transformers import DataCollatorForSeq2Seq, DefaultDataCollator, PreTrainedTokenizer
+
+from llms.models.base import BaseLLMWrapper
 
 
 class Seq2SeqDataModule(LightningDataModule):
     def __init__(
         self,
         dataset_path: str,
-        tokenizer: PreTrainedTokenizer,
+        data_collator: DefaultDataCollator,
         batch_size: int,
         num_workers: int = -1,
         training_transform_func: Callable[[Mapping[str, Any]], Mapping[str, Any]] = identity,
@@ -21,7 +23,7 @@ class Seq2SeqDataModule(LightningDataModule):
     ) -> None:
         super().__init__()
         self._dataset_path = dataset_path
-        self._tokenizer = tokenizer
+        self._default_data_collator = data_collator
         self._batch_size = batch_size
         self._num_workers = num_workers
         self._training_transform_func = training_transform_func
@@ -50,10 +52,5 @@ class Seq2SeqDataModule(LightningDataModule):
             batch_size=self._batch_size,
             num_workers=self._num_workers,
             shuffle=shuffle,
-            collate_fn=DataCollatorForSeq2Seq(
-                tokenizer=self._tokenizer,
-                padding="longest",
-                pad_to_multiple_of=8,
-                return_tensors="pt",
-            ),
+            collate_fn=self._default_data_collator,
         )

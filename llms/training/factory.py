@@ -1,3 +1,4 @@
+from accelerate import init_empty_weights
 from peft import (
     LoraConfig,
     PeftConfig,
@@ -10,36 +11,35 @@ from transformers import AutoTokenizer, PreTrainedModel, PreTrainedTokenizer
 from llms.configs.training import (
     LoraConfigSettings,
     MPTModelConfig,
-    PrefixTuningConfigSettings,
+    PeftConfigSettings, PrefixTuningConfigSettings,
     T5ModelConfig,
     TrainingConfig,
 )
+from llms.models.base import BaseLLMWrapper
 from llms.models.mpt import MPTLLMWrapper
 from llms.models.t5 import T5LLMWrapper
 
 
 def get_model(
     config: TrainingConfig,
-) -> tuple[PreTrainedModel, PreTrainedTokenizer]:
+) -> BaseLLMWrapper:
     match config.model:
         case MPTModelConfig() as model_config:
-            model = MPTLLMWrapper.from_config(model_config)
+            wrapper = MPTLLMWrapper.from_config(model_config)
         case T5ModelConfig() as model_config:
-            model = T5LLMWrapper.from_config(model_config)
+            wrapper = T5LLMWrapper.from_config(model_config)
         case _:
             raise NotImplementedError(f"Model {config.model} not implemented")
 
-    tokenizer = AutoTokenizer.from_pretrained(config.model.model_name)
-
-    peft_config = get_peft_config(config)
-    if peft_config is not None:
-        model = _convert_to_peft(
-            model=model.model,
+    if config.peft is not None:
+        peft_config = get_peft_config(config.peft)
+        wrapper.model = _convert_to_peft(
+            model=wrapper.model,
             peft_config=peft_config,
             load_in_kbit=config.model.load_in_kbit is not None,
         )
 
-    return model, tokenizer
+    return wrapper
 
 
 def _convert_to_peft(
@@ -54,8 +54,8 @@ def _convert_to_peft(
     return model
 
 
-def get_peft_config(config: TrainingConfig) -> PeftConfig | None:
-    match config.peft:
+def get_peft_config(peft_config: PeftConfigSettings) -> PeftConfig | None:
+    match peft_config:
         case LoraConfigSettings() as peft_config:
             return LoraConfig(
                 task_type=peft_config.task_type,
@@ -73,4 +73,4 @@ def get_peft_config(config: TrainingConfig) -> PeftConfig | None:
         case None:
             return None
         case _:
-            raise ValueError(f"Unknown peft_config_type: {config.peft}")
+            raise ValueError(f"Unknown peft_config_type: {peft_config}")
