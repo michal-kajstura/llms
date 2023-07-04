@@ -29,7 +29,6 @@ class Seq2SeqWrapper(LightningModule):
         generation_config: GenerationConfig,
         optimizer_config: OptimizerConfig,
         scheduler_config: SchedulerConfig,
-        to_save: dict[str, Any]  | None = None,
     ) -> None:
         super().__init__()
         self._model_wrapper = model_wrapper
@@ -39,7 +38,10 @@ class Seq2SeqWrapper(LightningModule):
         self._generation_config = generation_config
         self._optimizer_config = optimizer_config
         self._scheduler_config = scheduler_config
-        self._to_save = to_save or {}
+
+    @property
+    def model_wrapper(self) -> BaseLLMWrapper:
+        return self._model_wrapper
 
     def forward(self, *args, **kwargs):
         return self._model_wrapper.model(*args, **kwargs)
@@ -56,27 +58,21 @@ class Seq2SeqWrapper(LightningModule):
         return self._step(batch, "test")
 
     def _step(self, batch: dict[str, Tensor], epoch_type: str):
-        outputs = self._model_wrapper.model(**batch)
+        with torch.autocast('cuda', dtype=torch.bfloat16, enabled=True):
+            outputs = self._model_wrapper.model(**batch)
         self.log(f"{epoch_type}/loss", outputs.loss)
         return outputs.loss
 
     def _evaluation_step(self, batch: dict[str, Tensor], epoch_type: str):
-        labels = batch["labels"].clone()
-        labels[labels == -100] = self._model_wrapper.tokenizer.pad_token_id
-        decoded_labels = self._model_wrapper.tokenizer.batch_decode(
-            labels, skip_special_tokens=True
-        )
-        print('\n\n\n')
-        print('decoded_labels')
-        print(decoded_labels)
-        print('\n\n\n')
-
-        generated_tokens = self._model_wrapper.generate(
-            input_ids=batch["input_ids"],
-            generation_config=self._generation_config,
-        )
+        with torch.autocast('cuda', dtype=torch.bfloat16, enabled=True):
+            generated_tokens = self._model_wrapper.generate(
+                input_ids=batch["input_ids"],
+                attention_mask=batch["attention_mask"],
+                generation_config=self._generation_config,
+            )
         decoded_text = self._model_wrapper.tokenizer.batch_decode(
-            generated_tokens, skip_special_tokens=True
+            generated_tokens,
+            skip_special_tokens=True,
         )
         labels = batch["labels"].clone()
         labels[labels == -100] = self._model_wrapper.tokenizer.pad_token_id
@@ -134,6 +130,3 @@ class Seq2SeqWrapper(LightningModule):
                 raise NotImplementedError(self._scheduler_config)
 
         return [optimizer], [{"scheduler": scheduler, "interval": "step"}]
-
-    def on_save_checkpoint(self, checkpoint: dict[str, Any]) -> None:
-        checkpoint["config"] = self._to_save

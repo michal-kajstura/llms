@@ -17,7 +17,7 @@ class DataCollatorWithPrompt(DataCollatorForLanguageModeling):
         features = [
             {
                 "input_ids": example["input_ids"] + example["labels"],
-                "attention_mask": example["attention_mask"],
+                "attention_mask": example["attention_mask"] + [1] * len(example["labels"])
             }
             for example in features
         ]

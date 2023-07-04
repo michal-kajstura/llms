@@ -1,8 +1,10 @@
 from sklearn.model_selection import train_test_split
 
+from pathlib import Path
 from llms import DATASETS_PATH
 
-dataset_dir = DATASETS_PATH / "zero-shot"
+# dataset_dir = DATASETS_PATH / "zero-shot"
+dataset_dir = Path('/mnt/data/work/projects/tyro-datasets/data/zero-shot/evaluation/')
 
 paths = list(dataset_dir.joinpath("annotations").iterdir())
 val_paths, test_paths = train_test_split(

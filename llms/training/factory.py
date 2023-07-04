@@ -39,6 +39,7 @@ def get_model(
             load_in_kbit=config.model.load_in_kbit is not None,
         )
 
+    wrapper.training_config = config
     return wrapper
 
 

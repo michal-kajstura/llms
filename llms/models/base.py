@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import abc
+import json
+from pathlib import Path
 from typing import Any, Generic, TypeVar
 
+import torch
 from transformers import (
     AutoTokenizer,
     DefaultDataCollator,
-    PreTrainedModel,
+    GenerationConfig, PreTrainedModel,
     PreTrainedTokenizer,
 )
 
-from llms.configs.training import ModelConfig
+from llms.configs.training import ModelConfig, TrainingConfig
 
 TModel = TypeVar("TModel", bound=PreTrainedModel)
 TConfig = TypeVar("TConfig", bound=ModelConfig)
@@ -20,6 +23,7 @@ class BaseLLMWrapper(abc.ABC, Generic[TConfig]):
     def __init__(self, model: PreTrainedModel, tokenizer: PreTrainedTokenizer) -> None:
         self._model = model
         self._tokenizer = tokenizer
+        self.training_config: TrainingConfig | None = None
 
     @property
     def model(self) -> TModel:
@@ -62,5 +66,23 @@ class BaseLLMWrapper(abc.ABC, Generic[TConfig]):
     def _init_tokenizer(cls, config: TConfig) -> PreTrainedTokenizer:
         return AutoTokenizer.from_pretrained(config.model_name)
 
-    def generate(self, *args, **kwargs):
-        return self._model.generate(*args, **kwargs)
+    def generate(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        generation_config: GenerationConfig,
+    ) -> torch.Tensor:
+        return self._model.generate(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            generation_config=generation_config,
+        )
+
+    def save_pretrained(self, path: str) -> None:
+        self._model.save_pretrained(path)
+        self._tokenizer.save_pretrained(path)
+        if self.training_config is not None:
+            data_config = self.training_config.data
+            config_path = Path(path) / 'training_config.json'
+            with config_path.open('w') as f:
+                json.dump(data_config.dict(), f)

@@ -4,13 +4,14 @@ from pathlib import Path
 import evaluate
 import lightning
 from lightning import Trainer
-from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.callbacks import LearningRateMonitor
 from lightning.pytorch.loggers import MLFlowLogger
 from toolz import compose_left
 from transformers import GenerationConfig, PreTrainedModel
 
 from llms import METRICS_PATH, datasets as datasets_module
 from llms.configs.training import TrainingConfig
+from llms.training.callbacks import TransformersModelCheckpoint
 from llms.training.datamodule import Seq2SeqDataModule
 from llms.training.factory import get_model
 from llms.training.preprocessing import PreprocessBatch, TransformFields
@@ -20,8 +21,6 @@ logging.basicConfig(level=logging.INFO)
 
 config = TrainingConfig()
 config.model.modify_config(config)
-print(config)
-
 
 lightning.seed_everything(config.seed)
 
@@ -50,16 +49,11 @@ wrapper = Seq2SeqWrapper(
     ),
     optimizer_config=config.optimizer,
     scheduler_config=config.scheduler,
-    to_save=config.dict(),
 )
-
-print('\n\n\n')
-print('Prompt:')
-print(config.data.prompt_template)
-print('\n\n\n')
 eval_transforms = [
     PreprocessBatch(
         tokenizer=model_wrapper.tokenizer,
+        prompt_template=config.data.prompt_template,
         max_context_length=config.data.max_context_length,
         max_target_length=config.data.max_target_length,
         answer_delimiter=config.data.answer_delimiter,
@@ -96,7 +90,7 @@ trainer = Trainer(
     precision=config.trainer.precision,
     logger=logger,
     callbacks=[
-        ModelCheckpoint(
+        TransformersModelCheckpoint(
             monitor=f"validation/{config.metrics.main_metric}",
             mode=config.metrics.mode,
         ),
@@ -107,10 +101,6 @@ trainer = Trainer(
     check_val_every_n_epoch=config.trainer.check_val_every_n_epoch,
 )
 
-# trainer.validate(
-#     model=wrapper,
-#     datamodule=datamodule,
-# )
 trainer.fit(
     model=wrapper,
     datamodule=datamodule,

@@ -49,13 +49,14 @@ class ModelConfig(BaseSettings, abc.ABC):
 
 class MPTModelConfig(ModelConfig):
     model_name: str = "mosaicml/mpt-7b-instruct"
-    attn_impl: str = "torch"
+    # model_name: str = "tiiuae/falcon-7b"
+    attn_impl: str = "triton"
     init_device: str = "cuda:0"
 
     def modify_config(self, config: TrainingConfig):
         config.data.answer_delimiter = "\n"
         config.data.line_delimiter = "\n"
-        config.data.tab_delimiter = "\t"
+        config.data.tab_delimiter = "  "  # 2 spaces
         config.metrics.extraction_match["line_delimiter"] = "\n"
 
         if isinstance(peft_config := config.peft, LoraConfigSettings):
@@ -71,13 +72,35 @@ class MPTModelConfig(ModelConfig):
         return config
 
 
+class FalconModelConfig(ModelConfig):
+    model_name: str = "tiiuae/falcon-7b"
+
+    def modify_config(self, config: TrainingConfig):
+        config.data.answer_delimiter = "\n"
+        config.data.line_delimiter = "\n"
+        config.data.tab_delimiter = "  "  # 2 spaces
+        config.metrics.extraction_match["line_delimiter"] = "\n"
+
+        if isinstance(peft_config := config.peft, LoraConfigSettings):
+            peft_config.target_modules = ["key_query_value"]
+
+        config.data.prompt_template = (
+            "{text}\n"
+            ">>QUESTION<< Extract following fields {field_names} from the text.\n"
+            ">>ANSWER<<\n"
+        )
+
+        config.peft.task_type = TaskType.CAUSAL_LM
+        return config
+
+
 class T5ModelConfig(ModelConfig):
     model_name: str = "google/flan-t5-large"
 
     def modify_config(self, config: TrainingConfig):
         config.data.answer_delimiter = " | "
         config.data.line_delimiter = " | "
-        config.data.tab_delimiter = " "
+        config.data.tab_delimiter = "  "
         config.metrics.extraction_match["line_delimiter"] = " | "
 
         if isinstance(peft_config := config.peft, LoraConfigSettings):
@@ -94,13 +117,13 @@ class T5ModelConfig(ModelConfig):
 
 
 class TrainerConfig(BaseSettings):
-    max_epochs: int = 8
+    max_epochs: int = 16
     accelerator: str = "cuda"
     precision: Literal["16-mixed", "bf16-mixed", "32"] = "bf16-mixed"
     check_val_every_n_epoch: int = 1
 
-    batch_size: int = 1
-    accumulate_grad_batches: int = 16
+    batch_size: int = 2
+    accumulate_grad_batches: int = 8
     num_workers: int = 12
 
 
@@ -134,7 +157,7 @@ class PrefixTuningConfigSettings(PeftConfigSettings):
 class TrainingConfig(BaseSettings):
     seed: int = 42
     data: DataConfig = DataConfig()
-    model: ModelConfig = MPTModelConfig()
+    model: ModelConfig = T5ModelConfig()
     optimizer: OptimizerConfig = AdamWConfig()
     scheduler: SchedulerConfig = LinearSchedulerWithWarmupConfig()
     trainer: TrainerConfig = TrainerConfig()

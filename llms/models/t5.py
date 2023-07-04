@@ -14,7 +14,7 @@ class T5LLMWrapper(BaseLLMWrapper[T5ModelConfig]):
         return AutoModelForSeq2SeqLM.from_pretrained(
             config.model_name,
             device_map="auto",
-            offload_folder="offload",
+            **kwargs,
         )
 
     @property

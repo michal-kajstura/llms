@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from transformers import AutoConfig, DataCollatorForLanguageModeling, PreTrainedTokenizer
+import torch
+from transformers import (
+    BitsAndBytesConfig, GenerationConfig,
+    PreTrainedTokenizer,
+)
 
 from llms.configs.training import MPTModelConfig
 from llms.models.base import BaseLLMWrapper
@@ -15,14 +19,14 @@ class MPTLLMWrapper(BaseLLMWrapper[MPTModelConfig]):
     @classmethod
     def _from_config(cls, config: MPTModelConfig, **kwargs: Any) -> MPTLLMWrapper:
         model_config = MPTConfig.from_pretrained(config.model_name)
-        model_config.attn_config['attn_impl'] = config.attn_impl
+        model_config.attn_config["attn_impl"] = config.attn_impl
         model_config.init_device = config.init_device
 
         return MPTForCausalLM.from_pretrained(
             config.model_name,
             config=model_config,
             device_map="auto",
-            offload_folder='offload',
+            **kwargs,
         )
 
     @classmethod
@@ -41,5 +45,16 @@ class MPTLLMWrapper(BaseLLMWrapper[MPTModelConfig]):
             return_tensors="pt",
         )
 
-    def generate(self, *args, **kwargs):
-        return self._model.generate(*args, **kwargs)
+    def generate(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor,
+        generation_config: GenerationConfig,
+    ) -> torch.Tensor:
+        num_input_tokens = input_ids.shape[1]
+        outputs = self._model.generate(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            generation_config=generation_config,
+        )
+        return outputs[:, num_input_tokens:]

@@ -129,7 +129,6 @@ class PreprocessBatch:
             truncation=True,
         )
         model_inputs["labels"] = labels["input_ids"]
-        print('labels in transform ', len(model_inputs["labels"][0]))
         return model_inputs
 
     def _process_fields(
